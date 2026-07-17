@@ -17,17 +17,14 @@
 
 <div id="lockScreen">
     ❌ Помилка доступу!<br><br>
-    Цей таймер є приватною власністю компанії ТК.<br>
-    Будь ласка, запустіть команду через офіційний Discord-канал.
+    <span id="lockMessage">Цей таймер є приватною власністю компанії ТК.<br>Будь ласка, запустіть команду через офіційний Discord-канал.</span>
 </div>
 
 <div class="container" id="mainApp" style="display: none;">
     <h2>Смарт-годинник ТК (Київський час)</h2>
     <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку нижче.</p>
     <button id="pipBtn">📌 Закріпити поверх гри (PiP)</button>
-    
     <p>Для Firefox: натисніть **правою кнопкою миші** прямо по відео нижче і виберіть **«Картинка в картинці»**.</p>
-    
     <video id="timerVideo" autoplay muted loop playsinline controls></video>
     <canvas id="timerCanvas" width="320" height="160" style="display:none;"></canvas>
 </div>
@@ -35,29 +32,16 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const accessKey = urlParams.get('key');
-    
-    if (accessKey !== 'tk_cargo_2026') {
-        document.getElementById('lockScreen').style.display = 'block';
-        throw new Error("Доступ заблокирован.");
-    } else {
-        document.getElementById('mainApp').style.display = 'block';
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-    }
+    const timeStamp = parseInt(urlParams.get('t')); 
 
-    const canvas = document.getElementById('timerCanvas');
-    const ctx = canvas.getContext('2d');
-    const video = document.getElementById('timerVideo');
-    const pipBtn = document.getElementById('pipBtn');
-
-    let timeOffset = 0;
-    
-    // Динамические настройки по умолчанию
     let cargoTargetMin = 3; 
     let cargoStartSec = 9;
     let cargoEndSec = 13;
+    let tokenTime = 0;
+    let serverSecretKey = "";
 
-    async function loadConfigSeconds() {
+    // Функція валідації динамічного токена
+    async function checkTokenAndLoadConfig() {
         try {
             const response = await fetch('config.json?v=' + Math.random());
             if (response.ok) {
@@ -65,10 +49,38 @@
                 cargoTargetMin = parseInt(config.target_min) !== undefined ? parseInt(config.target_min) : 3;
                 cargoStartSec = parseInt(config.start_sec) || 9;
                 cargoEndSec = parseInt(config.end_sec) || 13;
+                serverSecretKey = config.secret_key || "";
+                tokenTime = parseInt(config.token_time) || 0;
+
+                // 🔐 СУРОВА ПЕРЕВІРКА ТОКЕНА
+                if (!accessKey || accessKey !== serverSecretKey) {
+                    showLockError("Невірний або застарілий токен доступу!");
+                    return false;
+                }
+
+                // ⏳ ПЕРЕВІРКА ЧАСУ ЖИТТЯ СЕСІЇ (24 години)
+                const currentTimeSec = Math.floor(Date.now() / 1000);
+                if (currentTimeSec - tokenTime > 86400) {
+                    showLockError("Строк дії сесії закінчився (24 год).<br>Будь ласка, візьміть нове посилання в Discord!");
+                    return false;
+                }
+
+                // Якщо все добре — відкриваємо годинник та зрізаємо хвіст
+                document.getElementById('mainApp').style.display = 'block';
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+                return true;
             }
         } catch (e) {
-            console.log("Базові налаштування: хвилина 3, секунди 9-13с");
+            showLockError("Помилка завантаження конфігурації безпеки.");
         }
+        return false;
+    }
+
+    function showLockError(msg) {
+        document.getElementById('lockMessage').innerHTML = msg;
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('lockScreen').style.display = 'block';
     }
 
     async function syncWithWorldTime() {
@@ -78,202 +90,32 @@
             const data = await response.json();
             const serverTime = new Date(data.datetime).getTime();
             const delay = (Date.now() - start) / 2;
-            timeOffset = (serverTime + delay) - Date.now();
+            window.timeOffset = (serverTime + delay) - Date.now();
         } catch (e) {
-            console.log("Помилка синхронізації часу");
+            window.timeOffset = 0;
         }
     }
-    
-    syncWithWorldTime();
-    loadConfigSeconds();
-    
+
+    window.timeOffset = 0;
+    syncWithWorldTime().then(() => {
+        checkTokenAndLoadConfig();
+    });
+    // Фоново дозавантажуємо секунди кожні 2 хвилини
     setInterval(() => {
         syncWithWorldTime();
-        loadConfigSeconds();
+        fetch('config.json?v=' + Math.random()).then(r => r.json()).then(config => {
+            cargoTargetMin = parseInt(config.target_min) !== undefined ? parseInt(config.target_min) : 3;
+            cargoStartSec = parseInt(config.start_sec) || 9;
+            cargoEndSec = parseInt(config.end_sec) || 13;
+            tokenTime = parseInt(config.token_time) || 0;
+        });
     }, 120000);
-
-    function drawRoundRect(x, y, width, height, radius) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-    }
-
-    function drawTimer() {
-        const exactNow = new Date(Date.now() + timeOffset);
-        const min = exactNow.getMinutes();
-        const sec = exactNow.getSeconds();
-        
-        let backgroundColor = '#000000';
-        let mainTextColor = '#ffffff';
-        let subTextColor = '#888888';
-        let statusText = '• РЕЙСИ ТК •';
-        
-        // Динамический расчет текущих фазовых минут на основе cargoTargetMin
-        const endsWithTargetMin = (min % 10 === cargoTargetMin);
-        
-        // Вычисляем минуту перед целевой (если целевая 0, то минута перед ней — 9)
-        const minBeforeTarget = cargoTargetMin === 0 ? 9 : cargoTargetMin - 1;
-        const endsWithBeforeMin = (min % 10 === minBeforeTarget);
-        
-        if (endsWithBeforeMin && sec >= 50) {
-            backgroundColor = '#ffcc00'; 
-            mainTextColor = '#000000';
-            subTextColor = '#000000';
-            statusText = '⚠️ ПРИГОТУВАТИСЬ!';
-        } else if (endsWithTargetMin && sec >= 0 && sec < cargoStartSec) {
-            backgroundColor = '#d32f2f'; 
-            mainTextColor = '#ffffff';
-            subTextColor = '#ffcccc';
-            statusText = '⏳ ОЧІКУВАННЯ...';
-        } else if (endsWithTargetMin && sec >= cargoStartSec && sec <= cargoEndSec) {
-            backgroundColor = '#2e7d32'; 
-            mainTextColor = '#ffffff';
-            subTextColor = '#ffffff';
-            statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
-        }
-
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.fillStyle = backgroundColor;
-        drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16);
-        ctx.fill();
-        
-        ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 35);
-        
-        const hrsStr = String(exactNow.getHours()).padStart(2, '0');
-        const minStr = String(min).padStart(2, '0');
-        const secStr = String(sec).padStart(2, '0');
-        const timeText = `${hrsStr}:${minStr}:${secStr}`;
-        
-        ctx.fillStyle = mainTextColor;
-        ctx.font = 'bold 42px monospace';
-        ctx.fillText(timeText, canvas.width / 2, 95);
-        
-        ctx.fillStyle = subTextColor;
-        ctx.font = 'bold 16px "Segoe UI", sans-serif';
-        ctx.fillText(statusText, canvas.width / 2, 140);
-    }
-
-    setInterval(drawTimer, 200);
-    video.srcObject = canvas.captureStream(15);
-
-    pipBtn.addEventListener('click', async () => {
-        try {
-            if (document.pictureInPictureElement) {
-                await document.exitPictureInPicture();
-            } else {
-                await video.play();
-                await video.requestPictureInPicture();
-            }
-        } catch (error) {
-            alert('Для Firefox: клацніть правою кнопкою миші по відео!');
-        }
-    });
-</script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <title>Світовий Годинник ТК (Київ)</title>
-    <style>
-        body { background: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 30px; }
-        .container { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        button { padding: 12px 24px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
-        button:hover { background: #218838; }
-        video { border: 2px solid #444; border-radius: 6px; background: #000; width: 320px; height: 160px; margin-top: 10px; }
-        p { color: #aaa; font-size: 14px; }
-        #lockScreen { display: none; padding: 50px 20px; color: #ff4d4d; font-size: 18px; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div id="lockScreen">
-    ❌ Помилка доступу!<br><br>
-    Цей таймер є приватною власністю компанії ТК.<br>
-    Будь ласка, запустіть команду через офіційний Discord-канал.
-</div>
-
-<div class="container" id="mainApp" style="display: none;">
-    <h2>Смарт-годинник ТК (Київський час)</h2>
-    <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку нижче.</p>
-    <button id="pipBtn">📌 Закріпити поверх гри (PiP)</button>
-    
-    <p>Для Firefox: натисніть **правою кнопкою миші** прямо по відео нижче і виберіть **«Картинка в картинці»**.</p>
-    
-    <video id="timerVideo" autoplay muted loop playsinline controls></video>
-    <canvas id="timerCanvas" width="320" height="160" style="display:none;"></canvas>
-</div>
-
-<script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const accessKey = urlParams.get('key');
-    
-    if (accessKey !== 'tk_cargo_2026') {
-        document.getElementById('lockScreen').style.display = 'block';
-        throw new Error("Доступ заблокирован.");
-    } else {
-        document.getElementById('mainApp').style.display = 'block';
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-    }
 
     const canvas = document.getElementById('timerCanvas');
     const ctx = canvas.getContext('2d');
     const video = document.getElementById('timerVideo');
     const pipBtn = document.getElementById('pipBtn');
 
-    let timeOffset = 0;
-    let cargoStartSec = 9;
-    let cargoEndSec = 13;
-
-    async function loadConfigSeconds() {
-        try {
-            const response = await fetch('config.json?v=' + Math.random());
-            if (response.ok) {
-                const config = await response.json();
-                cargoStartSec = parseInt(config.start_sec) || 9;
-                cargoEndSec = parseInt(config.end_sec) || 13;
-            }
-        } catch (e) {
-            console.log("Використовуються базові секунди: 9-13с");
-        }
-    }
-
-    async function syncWithWorldTime() {
-        try {
-            const start = Date.now();
-            const response = await fetch('https://worldtimeapi.org');
-            const data = await response.json();
-            const serverTime = new Date(data.datetime).getTime();
-            const delay = (Date.now() - start) / 2;
-            timeOffset = (serverTime + delay) - Date.now();
-        } catch (e) {
-            console.log("Помилка синхронізації часу");
-        }
-    }
-    
-    syncWithWorldTime();
-    loadConfigSeconds();
-    
-    setInterval(() => {
-        syncWithWorldTime();
-        loadConfigSeconds();
-    }, 120000);
-
     function drawRoundRect(x, y, width, height, radius) {
         ctx.beginPath();
         ctx.moveTo(x + radius, y);
@@ -289,64 +131,47 @@
     }
 
     function drawTimer() {
-        const exactNow = new Date(Date.now() + timeOffset);
+        if (document.getElementById('mainApp').style.display === 'none') return;
+
+        const exactNow = new Date(Date.now() + window.timeOffset);
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
         
+        // Автоблокування на льоту при відкритій вкладці понад 24 години
+        const loopTimeSec = Math.floor(Date.now() / 1000);
+        if (loopTimeSec - tokenTime > 86400) {
+            showLockError("Строк дії сесії закінчився (24 god).<br>Будь ласка, візьміть нове посилання в Discord!");
+            return;
+        }
+
         let backgroundColor = '#000000';
         let mainTextColor = '#ffffff';
         let subTextColor = '#888888';
         let statusText = '• РЕЙСИ ТК •';
         
-        const endsWithThree = (min % 10 === 3);
-        const endsWithTwo = (min % 10 === 2);
+        const endsWithTargetMin = (min % 10 === cargoTargetMin);
+        const minBeforeTarget = cargoTargetMin === 0 ? 9 : cargoTargetMin - 1;
+        const endsWithBeforeMin = (min % 10 === minBeforeTarget);
         
-        if (endsWithTwo && sec >= 50) {
-            backgroundColor = '#ffcc00'; 
-            mainTextColor = '#000000';
-            subTextColor = '#000000';
-            statusText = '⚠️ ПРИГОТУВАТИСЬ!';
-        } else if (endsWithThree && sec >= 0 && sec < cargoStartSec) {
-            backgroundColor = '#d32f2f'; 
-            mainTextColor = '#ffffff';
-            subTextColor = '#ffcccc';
-            statusText = '⏳ ОЧІКУВАННЯ...';
-        } else if (endsWithThree && sec >= cargoStartSec && sec <= cargoEndSec) {
-            backgroundColor = '#2e7d32'; 
-            mainTextColor = '#ffffff';
-            subTextColor = '#ffffff';
+        if (endsWithBeforeMin && sec >= 50) {
+            backgroundColor = '#ffcc00'; mainTextColor = '#000000'; subTextColor = '#000000'; statusText = '⚠️ ПРИГОТУВАТИСЬ!';
+        } else if (endsWithTargetMin && sec >= 0 && sec < cargoStartSec) {
+            backgroundColor = '#d32f2f'; mainTextColor = '#ffffff'; subTextColor = '#ffcccc'; statusText = '⏳ ОЧІКУВАННЯ...';
+        } else if (endsWithTargetMin && sec >= cargoStartSec && sec <= cargoEndSec) {
+            backgroundColor = '#2e7d32'; mainTextColor = '#ffffff'; subTextColor = '#ffffff';
             statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
         }
 
-        // Внешняя подложка
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = backgroundColor; drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16); ctx.fill();
         
-        // Внутреннее скругление
-        ctx.fillStyle = backgroundColor;
-        drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16);
-        ctx.fill();
-        
-        // 1. Название ТК
         ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
-        ctx.font = 'bold 20px "Segoe UI", sans-serif';
-        ctx.textAlign = 'center';
+        ctx.font = 'bold 20px "Segoe UI", sans-serif'; ctx.textAlign = 'center';
         ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 35);
         
-        // 2. Время
-        const hrsStr = String(exactNow.getHours()).padStart(2, '0');
-        const minStr = String(min).padStart(2, '0');
-        const secStr = String(sec).padStart(2, '0');
-        const timeText = `${hrsStr}:${minStr}:${secStr}`;
-        
-        ctx.fillStyle = mainTextColor;
-        ctx.font = 'bold 42px monospace';
-        ctx.fillText(timeText, canvas.width / 2, 95);
-        
-        // 3. Подсказка
-        ctx.fillStyle = subTextColor;
-        ctx.font = 'bold 16px "Segoe UI", sans-serif';
-        ctx.fillText(statusText, canvas.width / 2, 140);
+        const timeText = `${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+        ctx.fillStyle = mainTextColor; ctx.font = 'bold 42px monospace'; ctx.fillText(timeText, canvas.width / 2, 95);
+        ctx.fillStyle = subTextColor; ctx.font = 'bold 16px "Segoe UI", sans-serif'; ctx.fillText(statusText, canvas.width / 2, 140);
     }
 
     setInterval(drawTimer, 200);
@@ -354,15 +179,9 @@
 
     pipBtn.addEventListener('click', async () => {
         try {
-            if (document.pictureInPictureElement) {
-                await document.exitPictureInPicture();
-            } else {
-                await video.play();
-                await video.requestPictureInPicture();
-            }
-        } catch (error) {
-            alert('Для Firefox: клацніть правою кнопкою миші по відео!');
-        }
+            if (document.pictureInPictureElement) await document.exitPictureInPicture();
+            else { await video.play(); await video.requestPictureInPicture(); }
+        } catch (error) { alert('Для Firefox: використовуйте PiP!'); }
     });
 </script>
 </body>
