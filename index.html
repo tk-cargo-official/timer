@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Світовий Годинник ТК (Київ)</title>
+    <style>
+        body { background: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 30px; }
+        .container { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        button { padding: 12px 24px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        button:hover { background: #218838; }
+        /* Робимо відео видимим, щоб у Firefox працювала вбудована кнопка PiP */
+        video { border: 2px solid #444; border-radius: 6px; background: #000; width: 300px; height: 120px; margin-top: 10px; }
+        p { color: #aaa; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Смарт-годинник ТК (Київський час)</h2>
+    <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку нижче.</p>
+    <button id="pipBtn">📌 Закріпити поверх гри (PiP)</button>
+    
+    <p>Для Firefox: якщо кнопка вище не реагує, просто натисніть на значок «Картинка в картинці» прямо на відео нижче:</p>
+    
+    <!-- Відеопотік, в який транслюється холст із годинником -->
+    <video id="timerVideo" autoplay muted loop playsinline controls></video>
+    
+    <!-- Прихований холст для генерації графіки -->
+    <canvas id="timerCanvas" width="300" height="120" style="display:none;"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('timerCanvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('timerVideo');
+    const pipBtn = document.getElementById('pipBtn');
+
+    // Зміщення часу відносно системного годинника для точної синхронізації
+    let timeOffset = 0;
+
+    // Синхронізація з точним світовим часом через API Києва
+    async function syncWithWorldTime() {
+        try {
+            const start = Date.now();
+            const response = await fetch('https://worldtimeapi.org');
+            const data = await response.json();
+            const serverTime = new Date(data.datetime).getTime();
+            const delay = (Date.now() - start) / 2;
+            
+            // Обчислюємо різницю між сервером Києва та локальним ПК
+            timeOffset = (serverTime + delay) - Date.now();
+            console.log("Синхронізація успішна. Похибка ПК: " + (timeOffset/1000) + " сек.");
+        } catch (e) {
+            console.log("Не вдалося зв'язатися з сервером часу, використовуємо годинник ПК");
+        }
+    }
+    
+    // Запускаємо синхронізацію при старті сторінки
+    syncWithWorldTime();
+    // Повторюємо кожні 2 хвилини для точної підтримки секунда в секунду
+    setInterval(syncWithWorldTime, 120000);
+
+    function drawTimer() {
+        // Отримуємо точний скоригований час по Києву
+        const exactNow = new Date(Date.now() + timeOffset);
+        
+        const min = exactNow.getMinutes();
+        const sec = exactNow.getSeconds();
+        
+        // Визначаємо колір за нашою смарт-логікою (цикли 03, 13, 23, 33, 43, 53)
+        let backgroundColor = '#000000'; // За замовчуванням чорний
+        let textColor = '#ffffff';       // За замовчуванням білий
+        
+        // Перевіряємо, чи йде зараз цільова хвилина вантажу або хвилина перед нею
+        const endsWithThree = (min % 10 === 3);
+        const endsWithTwo = (min % 10 === 2);
+        
+        if (endsWithTwo && sec >= 50) {
+            backgroundColor = '#ffcc00'; // Жовтий: Приготуватися (за 10 сек до хвилини)
+            textColor = '#000000';
+        } else if (endsWithThree && sec >= 0 && sec <= 8) {
+            backgroundColor = '#d32f2f'; // Червоний: Увага (очікування пінгу сервера)
+            textColor = '#ffffff';
+        } else if (endsWithThree && sec >= 9 && sec <= 13) {
+            backgroundColor = '#2e7d32'; // Ярко-зелений: ЛОВИ! 🔥
+            textColor = '#ffffff';
+        }
+
+        // Очищення та заливка фону вікна
+        ctx.fillStyle = backgroundColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Форматування тексту ГГ:ХХ:СС
+        const hrsStr = String(exactNow.getHours()).padStart(2, '0');
+        const minStr = String(min).padStart(2, '0');
+        const secStr = String(sec).padStart(2, '0');
+        const timeText = `${hrsStr}:${minStr}:${secStr}`;
+        
+        // Отрисовка тексту годинника
+        ctx.fillStyle = textColor;
+        ctx.font = 'bold 46px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(timeText, canvas.width / 2, canvas.height / 2);
+    }
+
+    // Оновлення холста кожні 200 мілісекунд для плавності ходу секунд
+    setInterval(drawTimer, 200);
+
+    // Перенаправляємо потік з холста у відео-тег
+    video.srcObject = canvas.captureStream(15); // 15 кадрів на секунду достатньо
+
+    // Обробник апаратної кнопки (працює у Chrome/Edge)
+    pipBtn.addEventListener('click', async () => {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            } else {
+                await video.play();
+                await video.requestPictureInPicture();
+            }
+        } catch (error) {
+            alert('Для Firefox: використовуйте вбудований значок PiP безпосередньо всередині рамки відео!');
+        }
+    });
+</script>
+</body>
+</html>
