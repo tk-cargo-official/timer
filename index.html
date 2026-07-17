@@ -88,7 +88,6 @@
         loadConfigSeconds();
     }, 120000);
 
-    // Функція для малювання плавно закруглених кутів фону
     function drawRoundRect(x, y, width, height, radius) {
         ctx.beginPath();
         ctx.moveTo(x + radius, y);
@@ -111,7 +110,6 @@
         let backgroundColor = '#000000';
         let mainTextColor = '#ffffff';
         let subTextColor = '#888888';
-        // 🔥 ФІКС ТЕКСТУ: Тепер просто ОЧІКУВАННЯ...
         let statusText = '• РЕЙСИ ТК •';
         
         const endsWithThree = (min % 10 === 3);
@@ -134,22 +132,22 @@
             statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
         }
 
-        // 🖤 Робимо зовнішню підкладку абсолютно чорною
+        // Внешняя подложка
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        # ✂️ Малюємо внутрішню кольорову смарт-зону з м'якими закругленими кутами (радіус 16px)
+        // Внутреннее скругление
         ctx.fillStyle = backgroundColor;
         drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16);
         ctx.fill();
         
-        // 1. Назва ТК (Зверху)
+        // 1. Название ТК
         ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
         ctx.font = 'bold 20px "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 35);
         
-        // 2. Час (По центру)
+        // 2. Время
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
         const secStr = String(sec).padStart(2, '0');
@@ -159,7 +157,7 @@
         ctx.font = 'bold 42px monospace';
         ctx.fillText(timeText, canvas.width / 2, 95);
         
-        // 3. Текст підказки (Снизу)
+        // 3. Подсказка
         ctx.fillStyle = subTextColor;
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
         ctx.fillText(statusText, canvas.width / 2, 140);
