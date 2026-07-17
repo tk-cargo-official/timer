@@ -8,37 +8,76 @@
         .container { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         button { padding: 12px 24px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
         button:hover { background: #218838; }
-        /* Робимо відео видимим, щоб у Firefox працювала вбудована кнопка PiP */
         video { border: 2px solid #444; border-radius: 6px; background: #000; width: 300px; height: 120px; margin-top: 10px; }
         p { color: #aaa; font-size: 14px; }
+        /* Стиль для екрана блокування посторонніх */
+        #lockScreen { display: none; padding: 50px 20px; color: #ff4d4d; font-size: 18px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<!-- Екран блокування, якщо зайшли без ключа з Дискорду -->
+<div id="lockScreen">
+    ❌ Помилка доступу!<br><br>
+    Цей таймер є приватною власністю компанії ТК.<br>
+    Будь ласка, запустіть команду через офіційний Discord-канал.
+</div>
+
+<!-- Головне вікно програми -->
+<div class="container" id="mainApp" style="display: none;">
     <h2>Смарт-годинник ТК (Київський час)</h2>
     <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку нижче.</p>
     <button id="pipBtn">📌 Закріпити поверх гри (PiP)</button>
     
-    <p>Для Firefox: якщо кнопка вище не реагує, просто натисніть на значок «Картинка в картинці» прямо на відео нижче:</p>
+    <p>Для Firefox: якщо кнопка вище не реагує, просто натисніть **правою кнопкою миші** прямо по центру відео з годинником і виберіть пункт **«Картинка в картинці»**.</p>
     
-    <!-- Відеопотік, в який транслюється холст із годинником -->
     <video id="timerVideo" autoplay muted loop playsinline controls></video>
-    
-    <!-- Прихований холст для генерації графіки -->
     <canvas id="timerCanvas" width="300" height="120" style="display:none;"></canvas>
 </div>
 
 <script>
+    // 🔐 ЗЧИТУВАННЯ ТА СУВОРЕ СРЕЗАННЯ КЛЮЧА АВТОРИЗАЦІЇ
+    const urlParams = new URLSearchParams(window.location.search);
+    const accessKey = urlParams.get('key');
+    
+    if (accessKey !== 'tk_cargo_2026') {
+        // Якщо ключа немає або він неправильний — блокуємо сайт повністю
+        document.getElementById('lockScreen').style.display = 'block';
+        throw new Error("Доступ заблокирован.");
+    } else {
+        // Якщо ключ правильний — показуємо інтерфейс водію
+        document.getElementById('mainApp').style.display = 'block';
+        
+        // 🔥 МАГІЯ: Мгновенно видаляємо '?key=...' з адресного рядка, щоб не можна було скопіювати другу
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+    }
+
+    // --- ЛОГІКА РОБОТИ СМАРТ-ГОДИННИКА ---
     const canvas = document.getElementById('timerCanvas');
     const ctx = canvas.getContext('2d');
     const video = document.getElementById('timerVideo');
     const pipBtn = document.getElementById('pipBtn');
 
-    // Зміщення часу відносно системного годинника для точної синхронізації
     let timeOffset = 0;
+    let cargoStartSec = 9;
+    let cargoEndSec = 13;
 
-    // Синхронізація з точним світовим часом через API Києва
+    // Фонова завантаження секунд конфігурації з файлу config.json, який створює бот
+    async function loadConfigSeconds() {
+        try {
+            const response = await fetch('config.json?v=' + Math.random());
+            if (response.ok) {
+                const config = await response.json();
+                cargoStartSec = parseInt(config.start_sec) || 9;
+                cargoEndSec = parseInt(config.end_sec) || 13;
+            }
+        } catch (e) {
+            console.log("Використовуються базові секунди налаштування: 9-13с");
+        }
+    }
+
+    // Точна синхронізація з Київським світовим часом через API
     async function syncWithWorldTime() {
         try {
             const start = Date.now();
@@ -46,57 +85,52 @@
             const data = await response.json();
             const serverTime = new Date(data.datetime).getTime();
             const delay = (Date.now() - start) / 2;
-            
-            // Обчислюємо різницю між сервером Києва та локальним ПК
             timeOffset = (serverTime + delay) - Date.now();
-            console.log("Синхронізація успішна. Похибка ПК: " + (timeOffset/1000) + " сек.");
         } catch (e) {
-            console.log("Не вдалося зв'язатися з сервером часу, використовуємо годинник ПК");
+            console.log("Помилка синхронізації часу з сервером");
         }
     }
     
-    // Запускаємо синхронізацію при старті сторінки
     syncWithWorldTime();
-    // Повторюємо кожні 2 хвилини для точної підтримки секунда в секунду
-    setInterval(syncWithWorldTime, 120000);
+    loadConfigSeconds();
+    
+    // Оновлюємо точний час та конфіг секунд кожні 2 хвилини в фоні
+    setInterval(() => {
+        syncWithWorldTime();
+        loadConfigSeconds();
+    }, 120000);
 
     function drawTimer() {
-        // Отримуємо точний скоригований час по Києву
         const exactNow = new Date(Date.now() + timeOffset);
-        
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
         
-        // Визначаємо колір за нашою смарт-логікою (цикли 03, 13, 23, 33, 43, 53)
-        let backgroundColor = '#000000'; // За замовчуванням чорний
-        let textColor = '#ffffff';       // За замовчуванням білий
+        let backgroundColor = '#000000';
+        let textColor = '#ffffff';
         
-        // Перевіряємо, чи йде зараз цільова хвилина вантажу або хвилина перед нею
         const endsWithThree = (min % 10 === 3);
         const endsWithTwo = (min % 10 === 2);
         
+        // Колірні фази підсвічування під спавн вантажів
         if (endsWithTwo && sec >= 50) {
-            backgroundColor = '#ffcc00'; // Жовтий: Приготуватися (за 10 сек до хвилини)
+            backgroundColor = '#ffcc00'; // Жовтий: Приготуватися
             textColor = '#000000';
-        } else if (endsWithThree && sec >= 0 && sec <= 8) {
-            backgroundColor = '#d32f2f'; // Червоний: Увага (очікування пінгу сервера)
+        } else if (endsWithThree && sec >= 0 && sec < cargoStartSec) {
+            backgroundColor = '#d32f2f'; // Червоний: Очікування пінгу
             textColor = '#ffffff';
-        } else if (endsWithThree && sec >= 9 && sec <= 13) {
-            backgroundColor = '#2e7d32'; // Ярко-зелений: ЛОВИ! 🔥
+        } else if (endsWithThree && sec >= cargoStartSec && sec <= cargoEndSec) {
+            backgroundColor = '#2e7d32'; // Яскраво-зелений: ЛОВИ! 🔥
             textColor = '#ffffff';
         }
 
-        // Очищення та заливка фону вікна
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Форматування тексту ГГ:ХХ:СС
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
         const secStr = String(sec).padStart(2, '0');
         const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
-        // Отрисовка тексту годинника
         ctx.fillStyle = textColor;
         ctx.font = 'bold 46px monospace';
         ctx.textAlign = 'center';
@@ -104,13 +138,9 @@
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2);
     }
 
-    // Оновлення холста кожні 200 мілісекунд для плавності ходу секунд
     setInterval(drawTimer, 200);
+    video.srcObject = canvas.captureStream(15);
 
-    // Перенаправляємо потік з холста у відео-тег
-    video.srcObject = canvas.captureStream(15); // 15 кадрів на секунду достатньо
-
-    // Обробник апаратної кнопки (працює у Chrome/Edge)
     pipBtn.addEventListener('click', async () => {
         try {
             if (document.pictureInPictureElement) {
@@ -120,7 +150,7 @@
                 await video.requestPictureInPicture();
             }
         } catch (error) {
-            alert('Для Firefox: використовуйте вбудований значок PiP безпосередньо всередині рамки відео!');
+            alert('Для Firefox: клацніть правою кнопкою миші по відео та оберіть пункт «Картинка в картинці»!');
         }
     });
 </script>
