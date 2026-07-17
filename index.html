@@ -136,7 +136,7 @@
 
         let backgroundColor = '#000000';
         let mainTextColor = '#ffffff';
-        let subTextColor = '#aaaaaa'; // Зробили звичайний текст трохи яскравішим
+        let subTextColor = '#dddddd'; 
         let statusText = '• РЕЙСИ ТК •';
         
         const endsWithTargetMin = (min % 10 === cargoTargetMin);
@@ -146,27 +146,33 @@
         if (endsWithBeforeMin && sec >= 50) {
             backgroundColor = '#ffcc00'; mainTextColor = '#000000'; subTextColor = '#000000'; statusText = '⚠️ ПРИГОТУВАТИСЬ!';
         } else if (endsWithTargetMin && sec >= 0 && sec < cargoStartSec) {
-            backgroundColor = '#d32f2f'; mainTextColor = '#ffffff'; subTextColor = '#ffcccc'; statusText = '⏳ ОЧІКУВАННЯ...';
+            backgroundColor = '#d32f2f'; mainTextColor = '#ffffff'; subTextColor = '#ffffff'; statusText = '⏳ ОЧІКУВАННЯ...';
         } else if (endsWithTargetMin && sec >= cargoStartSec && sec <= cargoEndSec) {
             backgroundColor = '#2e7d32'; mainTextColor = '#ffffff'; subTextColor = '#ffffff';
             statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
         }
 
-        ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = backgroundColor; drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16); ctx.fill();
+        // Убираем толстую черную внешнюю рамку — заливаем холст полностью
+        ctx.fillStyle = backgroundColor; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 1. Назва ТК (Збільшено шрифт з 20px до 24px, збалансовано висоту)
+        // Рисуем закругление прямо по кромке холста
+        ctx.fillStyle = backgroundColor; 
+        drawRoundRect(0, 0, canvas.width, canvas.height, 14); 
+        ctx.fill();
+        
+        // 1. Название ТК (Шрифт 26px, поднят максимально вверх)
         ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
-        ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 38);
+        ctx.font = 'bold 26px "Segoe UI", sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('💡 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 36);
         
-        // 2. Час (Збільшено шрифт з 42px до 52px для максимальної чіткості)
-        ctx.fillStyle = mainTextColor; ctx.font = 'bold 52px monospace'; 
-        ctx.fillText(`${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, canvas.width / 2, 98);
+        // 2. Время (Шрифт 64px — теперь цифры займут всю центральную площадь!)
+        ctx.fillStyle = mainTextColor; ctx.font = 'bold 64px monospace'; 
+        ctx.fillText(`${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, canvas.width / 2, 102);
         
-        // 3. Підказка (Збільшено шрифт з 16px до 19px, опущено нижче)
-        ctx.fillStyle = subTextColor; ctx.font = 'bold 19px "Segoe UI", sans-serif'; 
-        ctx.fillText(statusText, canvas.width / 2, 144);
+        // 3. Подсказка (Шрифт 21px, опущен в самый низ кромки)
+        ctx.fillStyle = subTextColor; ctx.font = 'bold 21px "Segoe UI", sans-serif'; 
+        ctx.fillText(statusText, canvas.width / 2, 148);
     }
 
     setInterval(drawTimer, 200);
