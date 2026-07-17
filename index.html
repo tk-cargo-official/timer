@@ -128,7 +128,6 @@
         const minBeforeTarget = cargoTargetMin === 0 ? 9 : cargoTargetMin - 1;
         const endsWithBeforeMin = (min % 10 === minBeforeTarget);
         
-        // 🔥 НОВАЯ ЛОГИКА ФАЗЫ: Желтый загорается на всю целевую минуту перед ловлей (с 00 до 59 секунд)
         if (endsWithBeforeMin) {
             backgroundColor = '#ffcc00'; mainTextColor = '#000000'; subTextColor = '#000000'; statusText = '⚠️ ПРИГОТУВАТИСЬ!';
         } else if (endsWithTargetMin && sec >= 0 && sec < cargoStartSec) {
@@ -138,26 +137,31 @@
             statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
         }
 
-        // 🖤 Возвращаем внешнюю черную подложку-рамку
+        // Внешняя подложка (черная рамка)
         ctx.fillStyle = '#000000'; 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // ✂️ Рисуем красивую внутреннюю цветную зону с отступом 4px и скруглением углов 16px
+        // Внутренняя цветная зона со скруглением
         ctx.fillStyle = backgroundColor; 
         drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16); 
         ctx.fill();
         
-        // 1. Название ТК (Убрали лампочку, сохранили большой жирный шрифт)
+        // 1. Название ТК (СТРОГО ОДИН ТЕКСТ, ВСЕ СМАЙЛИКИ И КОРdefault ИКОНКИ УБРАНЫ)
         ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
         ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center';
         ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 38);
         
-        // 2. Время (Шрифт 52px — идеально центрирован)
-        ctx.fillStyle = mainTextColor; ctx.font = 'bold 52px monospace'; 
-        ctx.fillText(`${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, canvas.width / 2, 98);
+        // 2. Время
+        const hrsStr = String(exactNow.getHours()).padStart(2, '0');
+        const minStr = String(min).padStart(2, '0');
+        const secStr = String(sec).padStart(2, '0');
+        const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
-        // 3. Подсказка (Шрифт 19px — опущен вниз)
-        ctx.fillStyle = subTextColor; ctx.font = 'bold 19px "Segoe UI", sans-serif'; 
+        ctx.fillStyle = mainTextColor; ctx.font = 'bold 52px monospace'; 
+        ctx.fillText(timeText, canvas.width / 2, 98);
+        
+        // 3. Подсказка
+        ctx.fillStyle = subTextColor; ctx.font = 'bold 16px "Segoe UI", sans-serif'; 
         ctx.fillText(statusText, canvas.width / 2, 144);
     }
 
