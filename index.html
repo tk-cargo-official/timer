@@ -38,44 +38,46 @@
     let cargoStartSec = 9;
     let cargoEndSec = 13;
     let tokenTime = 0;
-    let serverSecretKey = "";
 
-    // Функція валідації динамічного токена
+    // Функція валідації автономного крипто-ключа
     async function checkTokenAndLoadConfig() {
         try {
+            // Перевіряємо штамп часу (24 години = 86400 секунд)
+            const currentTimeSec = Math.floor(Date.now() / 1000);
+            if (!accessKey || !timeStamp || (currentTimeSec - timeStamp > 86400)) {
+                showLockError("Строк дії сесії закінчився або ключ невірний!<br>Будь ласка, візьміть нове посилання в Discord.");
+                return false;
+            }
+
+            // Математична дешифрація ключа
+            const decodedCheck = hexToDec(accessKey) ^ 0xABC123;
+            if (decodedCheck !== timeStamp) {
+                showLockError("Криптографічна помилка авторизації!");
+                return false;
+            }
+
+            // Скачуємо тільки хвилини і секунди налаштувань адміна
             const response = await fetch('config.json?v=' + Math.random());
             if (response.ok) {
                 const config = await response.json();
                 cargoTargetMin = parseInt(config.target_min) !== undefined ? parseInt(config.target_min) : 3;
                 cargoStartSec = parseInt(config.start_sec) || 9;
                 cargoEndSec = parseInt(config.end_sec) || 13;
-                serverSecretKey = config.secret_key || "";
-                tokenTime = parseInt(config.token_time) || 0;
-
-                // 🔐 СУРОВА ПЕРЕВІРКА ТОКЕНА
-                if (!accessKey || accessKey !== serverSecretKey) {
-                    showLockError("Невірний або застарілий токен доступу!");
-                    return false;
-                }
-
-                // ⏳ ПЕРЕВІРКА ЧАСУ ЖИТТЯ СЕСІЇ (24 години)
-                const currentTimeSec = Math.floor(Date.now() / 1000);
-                if (currentTimeSec - tokenTime > 86400) {
-                    showLockError("Строк дії сесії закінчився (24 год).<br>Будь ласка, візьміть нове посилання в Discord!");
-                    return false;
-                }
-
-                // Якщо все добре — відкриваємо годинник та зрізаємо хвіст
-                document.getElementById('mainApp').style.display = 'block';
-                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-                return true;
             }
+
+            // Сесія успішна — пускаємо водія та зрізаємо хвіст
+            tokenTime = timeStamp;
+            document.getElementById('mainApp').style.display = 'block';
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+            return true;
         } catch (e) {
             showLockError("Помилка завантаження конфігурації безпеки.");
         }
         return false;
     }
+
+    function hexToDec(hex) { return parseInt(hex, 16); }
 
     function showLockError(msg) {
         document.getElementById('lockMessage').innerHTML = msg;
@@ -91,15 +93,11 @@
             const serverTime = new Date(data.datetime).getTime();
             const delay = (Date.now() - start) / 2;
             window.timeOffset = (serverTime + delay) - Date.now();
-        } catch (e) {
-            window.timeOffset = 0;
-        }
+        } catch (e) { window.timeOffset = 0; }
     }
 
     window.timeOffset = 0;
-    syncWithWorldTime().then(() => {
-        checkTokenAndLoadConfig();
-    });
+    syncWithWorldTime().then(() => { document.getElementById('mainApp').style.display = 'block'; checkTokenAndLoadConfig(); });
     // Фоново дозавантажуємо секунди кожні 2 хвилини
     setInterval(() => {
         syncWithWorldTime();
@@ -107,7 +105,6 @@
             cargoTargetMin = parseInt(config.target_min) !== undefined ? parseInt(config.target_min) : 3;
             cargoStartSec = parseInt(config.start_sec) || 9;
             cargoEndSec = parseInt(config.end_sec) || 13;
-            tokenTime = parseInt(config.token_time) || 0;
         });
     }, 120000);
 
@@ -139,8 +136,8 @@
         
         // Автоблокування на льоту при відкритій вкладці понад 24 години
         const loopTimeSec = Math.floor(Date.now() / 1000);
-        if (loopTimeSec - tokenTime > 86400) {
-            showLockError("Строк дії сесії закінчився (24 god).<br>Будь ласка, візьміть нове посилання в Discord!");
+        if (tokenTime > 0 && loopTimeSec - tokenTime > 86400) {
+            showLockError("Строк дії сесії закінчився (24 год).<br>Будь ласка, візьміть нове посилання в Discord!");
             return;
         }
 
