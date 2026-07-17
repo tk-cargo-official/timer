@@ -34,31 +34,25 @@
     const accessKey = urlParams.get('key');
     const timeStamp = parseInt(urlParams.get('t')); 
 
-    // 🔥 СЧИТЫВАЕМ НАСТРОЙКИ ВРЕМЕНИ НАПРЯМУЮ ИЗ ССЫЛКИ БОТА БЕЗ ЗАПРОСОВ К ФАЙЛАМ!
     let cargoTargetMin = parseInt(urlParams.get('m')) !== null ? parseInt(urlParams.get('m')) : 3; 
     let cargoStartSec = parseInt(urlParams.get('s')) !== null ? parseInt(urlParams.get('s')) : 9;
     let cargoEndSec = parseInt(urlParams.get('e')) !== null ? parseInt(urlParams.get('e')) : 13;
     let tokenTime = 0;
 
-    // Функція валідації автономного крипто-ключа
     async function checkTokenAndLoadConfig() {
         try {
             const currentTimeSec = Math.floor(Date.now() / 1000);
-            
-            // ⏳ ПЕРЕВІРКА ЧАСУ ЖИТТЯ СЕСІЇ (24 години = 86400 секунд)
             if (!accessKey || !timeStamp || (currentTimeSec - timeStamp > 86400)) {
                 showLockError("Строк дії сесії закінчився або ключ невірний!<br>Будь ласка, візьміть нове посилання в Discord.");
                 return false;
             }
 
-            // Математична дешифрація ключа
             const decodedCheck = parseInt(accessKey, 16) ^ 0xABC123;
             if (decodedCheck !== timeStamp) {
                 showLockError("Криптографічна помилка авторизації!");
                 return false;
             }
 
-            // Сесія успішна — пускаємо водія та повністю зрізаємо хвіст з адресного рядка
             tokenTime = timeStamp;
             document.getElementById('mainApp').style.display = 'block';
             const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
@@ -89,7 +83,6 @@
 
     window.timeOffset = 0;
     syncWithWorldTime().then(() => { checkTokenAndLoadConfig(); });
-    // Фоново дозавантажуємо точний час кожні 2 хвилини
     setInterval(() => {
         syncWithWorldTime();
     }, 120000);
@@ -120,7 +113,6 @@
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
         
-        // Автоблокування на льоту при відкритій вкладці понад 24 години
         const loopTimeSec = Math.floor(Date.now() / 1000);
         if (tokenTime > 0 && loopTimeSec - tokenTime > 86400) {
             showLockError("Строк дії сесії закінчився (24 год).<br>Будь ласка, візьміть нове посилання в Discord!");
@@ -136,7 +128,8 @@
         const minBeforeTarget = cargoTargetMin === 0 ? 9 : cargoTargetMin - 1;
         const endsWithBeforeMin = (min % 10 === minBeforeTarget);
         
-        if (endsWithBeforeMin && sec >= 50) {
+        // 🔥 НОВАЯ ЛОГИКА ФАЗЫ: Желтый загорается на всю целевую минуту перед ловлей (с 00 до 59 секунд)
+        if (endsWithBeforeMin) {
             backgroundColor = '#ffcc00'; mainTextColor = '#000000'; subTextColor = '#000000'; statusText = '⚠️ ПРИГОТУВАТИСЬ!';
         } else if (endsWithTargetMin && sec >= 0 && sec < cargoStartSec) {
             backgroundColor = '#d32f2f'; mainTextColor = '#ffffff'; subTextColor = '#ffffff'; statusText = '⏳ ОЧІКУВАННЯ...';
@@ -145,16 +138,27 @@
             statusText = (Math.floor(Date.now() / 250) % 2 === 0) ? '🔥 ЛОВИ ВАНТАЖ! 🔥' : '  ЛОВИ ВАНТАЖ!  ';
         }
 
-        ctx.fillStyle = backgroundColor; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = backgroundColor; drawRoundRect(0, 0, canvas.width, canvas.height, 14); ctx.fill();
+        // 🖤 Возвращаем внешнюю черную подложку-рамку
+        ctx.fillStyle = '#000000'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        // ✂️ Рисуем красивую внутреннюю цветную зону с отступом 4px и скруглением углов 16px
+        ctx.fillStyle = backgroundColor; 
+        drawRoundRect(4, 4, canvas.width - 8, canvas.height - 8, 16); 
+        ctx.fill();
+        
+        // 1. Название ТК (Убрали лампочку, сохранили большой жирный шрифт)
         ctx.fillStyle = (backgroundColor === '#ffcc00') ? '#000000' : '#ffcc00';
         ctx.font = 'bold 24px "Segoe UI", sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('💡 👑 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 36);
+        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 38);
         
-        const timeText = `${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-        ctx.fillStyle = mainTextColor; ctx.font = 'bold 64px monospace'; ctx.fillText(timeText, canvas.width / 2, 102);
-        ctx.fillStyle = subTextColor; ctx.font = 'bold 21px "Segoe UI", sans-serif'; ctx.fillText(statusText, canvas.width / 2, 148);
+        // 2. Время (Шрифт 52px — идеально центрирован)
+        ctx.fillStyle = mainTextColor; ctx.font = 'bold 52px monospace'; 
+        ctx.fillText(`${String(exactNow.getHours()).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`, canvas.width / 2, 98);
+        
+        // 3. Подсказка (Шрифт 19px — опущен вниз)
+        ctx.fillStyle = subTextColor; ctx.font = 'bold 19px "Segoe UI", sans-serif'; 
+        ctx.fillText(statusText, canvas.width / 2, 144);
     }
 
     setInterval(drawTimer, 200);
