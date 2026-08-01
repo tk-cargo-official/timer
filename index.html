@@ -116,7 +116,7 @@
         
         let backgroundColor = '#000000';
         let textColor = '#ffffff';
-        let bottomText = '• \u0423\u0421\u041F\u0406\u0425\u0406\u0412! •'; // • УСПІХІВ! •
+        let bottomText = '• УСПІХІВ! •'; // 🔥 Фиксировано: ВСЕГДА пишется "УСПІХІВ!" по умолчанию
         
         const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
@@ -128,28 +128,28 @@
             if (endsWithPrepMin) {
                 backgroundColor = '#ffcc00'; 
                 textColor = '#000000';      
-                bottomText = '\u26A0\uFE0F \u041F\u0420\u0418\u0413\u041E\u0422\u0423\u0412\u0410\u0422\u0418\u0421\u042C!'; // ⚠️ ПРИГОТУВАТИСЬ!
+                bottomText = '⚠️ ПРИГОТУВАТИСЬ!'; 
             } else if (endsWithSpawnMin && sec >= 0 && sec < cargoStartSec) {
                 backgroundColor = '#d32f2f'; 
                 textColor = '#ffffff';      
-                bottomText = '\u23F3 \u041E\u0427\u0406\u041A\u0423\u0412\u0410\u041D\u041D\u042F \u041F\u0406\u041D\u0413\u0423...'; // ⏳ ОЧІКУВАННЯ ПІНГУ...
+                bottomText = '⏳ ОЧІКУВАННЯ ПІНГУ...'; 
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
                 backgroundColor = '#2e7d32'; 
                 textColor = '#ffffff';      
-                bottomText = '\uD83D\uDD25 \u041B\u041E\u0412\u0418 \u0412\u0410\u041D\u0422\u0410\u0416! \uD83D\uDD25'; // 🔥 ЛОВИ ВАНТАЖ! 🔥
+                bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
             } else {
-                bottomText = '• \u0420\u0415\u0419\u0421\u0418 \u0422\u041A •'; // • УСПІХІВ! •
+                bottomText = '• УСПІХІВ! •'; // 🔥 Изменено: для премиумов вне фаз тоже пишется "УСПІХІВ!"
             }
         }
 
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 🔥 Безпечний заголовок за допомогою Юникод-экранирования: 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀
+        // 🔥 Точный жирный шрифт: 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀
         ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('\uD835\uDC0A\uD835\uDC0E\uD835\uDC10\uD835\uDC03\uD835\uDC0E\uD835\uDC0D\uD835\uDC04\uD835\uDC01 \uD835\uDC07\uD835\uDC04\uD835\uDC0C\uD835\uDC00', canvas.width / 2, 25);
+        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 25);
 
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
@@ -164,6 +164,7 @@
         ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
     }
+
 
     setInterval(drawTimer, 200);
     video.srcObject = canvas.captureStream(15);
