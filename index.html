@@ -66,20 +66,30 @@
     const pipBtn = document.getElementById('pipBtn');
 
     let timeOffset = 0;
+    let target_min = 3;   // 🔥 Оголошуємо глобальну змінну для хвилини спавну
     let cargoStartSec = 9;
     let cargoEndSec = 13;
 
-    // Фонове завантаження секунд конфігурації з файлу config.json, який створює бот
+    // Первинне зчитування налаштувань прямо з посилання Дискорду (якщо json ще не завантажився)
+    const url_m = parseInt(urlParams.get('m'));
+    const url_s = parseInt(urlParams.get('s'));
+    const url_e = parseInt(urlParams.get('e'));
+    if (!isNaN(url_m)) target_min = url_m;
+    if (!isNaN(url_s)) cargoStartSec = url_s;
+    if (!isNaN(url_e)) cargoEndSec = url_e;
+
+    // Фонове завантаження конфігурації з файлу config.json, який створює бот
     async function loadConfigSeconds() {
         try {
             const response = await fetch('config.json?v=' + Math.random());
             if (response.ok) {
                 const config = await response.json();
+                target_min = parseInt(config.target_min) || 3;
                 cargoStartSec = parseInt(config.start_sec) || 9;
                 cargoEndSec = parseInt(config.end_sec) || 13;
             }
         } catch (e) {
-            console.log("Використовуються базові секунди налаштування: 9-13с");
+            console.log("Використовуються базові налаштування таймера");
         }
     }
 
@@ -97,64 +107,58 @@
         }
     }
     
-    // Запускаємо первинну синхронізацію при вході
     syncWithWorldTime();
     loadConfigSeconds();
     
-    // Фонове оновлення точного часу та налаштувань кожні 2 хвилини
     setInterval(() => {
         syncWithWorldTime();
         loadConfigSeconds();
     }, 120000);
+
     function drawTimer() {
         const exactNow = new Date(Date.now() + timeOffset);
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
         
-        // Базові налаштування: чорний фон, білий текст та напис для звичайного доступу
         let backgroundColor = '#000000';
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
         
-        // Вычисляем, на какую цифру должна заканчиваться минута спавна (например, 3)
-        // И на какую цифру должна заканчиваться минута подготовки (например, 2)
-        const spawnUnit = cargoStartSec === 0 ? target_min : (target_min % 10); 
+        // Розраховуємо хвилину підготовки (на 1 хвилину раніше за спавн)
+        const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
 
         const endsWithSpawnMin = (min % 10 === spawnUnit);
         const endsWithPrepMin = (min % 10 === prepUnit);
         
-        // Колірні фази підсвічування активуються строго за умови наявності доступу (hasColorAccess)
         if (hasColorAccess) {
-            // 🔥 Желтое окно теперь горит ВСЮ минуту подготовки (например, всю 2-ю минуту)
+            // Жовта фаза: горить всю хвилину підготовки до ловлі
             if (endsWithPrepMin) {
-                backgroundColor = '#ffcc00'; // Жовтий фон
-                textColor = '#000000';      // Чорний текст часу
+                backgroundColor = '#ffcc00'; 
+                textColor = '#000000';      
                 bottomText = '⚠️ ПРИГОТУВАТИСЬ!';
             } else if (endsWithSpawnMin && sec >= 0 && sec < cargoStartSec) {
-                backgroundColor = '#d32f2f'; // Червоний фон
-                textColor = '#ffffff';      // Білий текст часу
+                backgroundColor = '#d32f2f'; // Червона фаза
+                textColor = '#ffffff';      
                 bottomText = '⏳ ОЧІКУВАННЯ ПІНГУ...';
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
-                backgroundColor = '#2e7d32'; // Яскраво-зелений фон
-                textColor = '#ffffff';      // Білий текст часу
+                backgroundColor = '#2e7d32'; // Зелена фаза
+                textColor = '#ffffff';      
                 bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥';
             } else {
-                bottomText = '• РЕЙСИ ТК •'; // Стандартний напис для преміум-водіїв поза фазами спавну
+                bottomText = '• УСПІХІВ! •'; 
             }
         }
 
-        // Очищення та заливка фону всього таймера
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 🔥 Отрисовка верхнього заголовка зі стилізованим шрифтом 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀
+        // Магічний шрифт для верхнього заголовка
         ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
         ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 25);
+        ctx.fillText('• 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •', canvas.width / 2, 25);
 
-        // Форматування та відображення основного часу (цифр)
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
         const secStr = String(sec).padStart(2, '0');
@@ -164,17 +168,14 @@
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        // Відображення нижнього динамічного напису
         ctx.fillStyle = textColor;
         ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
     }
 
-    // Оновлюємо холст кожні 200 мілісекунд для плавності ходу секунд
     setInterval(drawTimer, 200);
     video.srcObject = canvas.captureStream(15);
 
-    // Логіка перемикання режиму "Картинка в картинці" (PiP)
     pipBtn.addEventListener('click', async () => {
         try {
             if (document.pictureInPictureElement) {
