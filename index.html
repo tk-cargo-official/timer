@@ -111,30 +111,36 @@
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
         
-        // Базові налаштування: чорний фон, білий текст та надпис для звичайного доступу
+        // Базові налаштування: чорний фон, білий текст та напис для звичайного доступу
         let backgroundColor = '#000000';
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
         
-        const endsWithThree = (min % 10 === 3);
-        const endsWithTwo = (min % 10 === 2);
+        // Вычисляем, на какую цифру должна заканчиваться минута спавна (например, 3)
+        // И на какую цифру должна заканчиваться минута подготовки (например, 2)
+        const spawnUnit = cargoStartSec === 0 ? target_min : (target_min % 10); 
+        const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
+
+        const endsWithSpawnMin = (min % 10 === spawnUnit);
+        const endsWithPrepMin = (min % 10 === prepUnit);
         
         // Колірні фази підсвічування активуються строго за умови наявності доступу (hasColorAccess)
         if (hasColorAccess) {
-            if (endsWithTwo && sec >= 50) {
+            // 🔥 Желтое окно теперь горит ВСЮ минуту подготовки (например, всю 2-ю минуту)
+            if (endsWithPrepMin) {
                 backgroundColor = '#ffcc00'; // Жовтий фон
                 textColor = '#000000';      // Чорний текст часу
                 bottomText = '⚠️ ПРИГОТУВАТИСЬ!';
-            } else if (endsWithThree && sec >= 0 && sec < cargoStartSec) {
+            } else if (endsWithSpawnMin && sec >= 0 && sec < cargoStartSec) {
                 backgroundColor = '#d32f2f'; // Червоний фон
                 textColor = '#ffffff';      // Білий текст часу
-                bottomText = '⏳ ОЧІКУВАННЯ...';
-            } else if (endsWithThree && sec >= cargoStartSec && sec <= cargoEndSec) {
+                bottomText = '⏳ ОЧІКУВАННЯ ПІНГУ...';
+            } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
                 backgroundColor = '#2e7d32'; // Яскраво-зелений фон
                 textColor = '#ffffff';      // Білий текст часу
                 bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥';
             } else {
-                bottomText = '• УСПІХІВ! •'; // Стандартний напис для преміум-водіїв поза фазами спавну
+                bottomText = '• РЕЙСИ ТК •'; // Стандартний напис для преміум-водіїв поза фазами спавну
             }
         }
 
@@ -142,12 +148,11 @@
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Отрисовка верхнього заголовка "КОРДОНІВ НЕМА"
-        // Робимо його чорним на жовтому фоні (щоб не зливався) і помаранчево-жовтим в інших випадках
-        ctx.fillStyle = hasColorAccess && endsWithTwo && sec >= 50 ? '#000000' : '#ffcc00';
-        ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
+        // 🔥 Отрисовка верхнього заголовка зі стилізованим шрифтом 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀
+        ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
+        ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('КОРДОНІВ НЕМА', canvas.width / 2, 25);
+        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 25);
 
         // Форматування та відображення основного часу (цифр)
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
@@ -159,7 +164,7 @@
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        // Відображення нижнього динамічного напису ("УДАЧІ!", "ПРИГОТУВАТИСЬ!" тощо)
+        // Відображення нижнього динамічного напису
         ctx.fillStyle = textColor;
         ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
