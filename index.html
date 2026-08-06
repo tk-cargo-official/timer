@@ -137,17 +137,13 @@
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
                 backgroundColor = '#2e7d32'; 
                 textColor = '#ffffff';      
+                bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; // Текст всегда одинаковый, не прыгает
                 
-                // 🔥 Моргание огней: каждые 500мс переключаем отображение значков огня
-                if (ms < 500) {
-                    bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥';
-                } else {
-                    bottomText = '  ЛОВИ ВАНТАЖ!  ';
+                // Магия мигания: вторую половину секунды (от 500 до 999 мс) текст просто скрывается
+                if (ms >= 500) {
+                    textColor = 'transparent'; // Делает текст полностью невидимым на полсекунды
                 }
-            } else {
-                bottomText = '• УСПІХІВ! •'; 
             }
-        }
 
         // Очищаем весь холст перед новой отрисовкой
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -183,7 +179,7 @@
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
         ctx.fillStyle = textColor;
-        ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
+        ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
         
         ctx.restore(); // Сбрасываем маску скругления для следующего кадра
