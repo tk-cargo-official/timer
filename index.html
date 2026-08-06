@@ -113,10 +113,11 @@
         const exactNow = new Date(Date.now() + timeOffset);
         const min = exactNow.getMinutes();
         const sec = exactNow.getSeconds();
+        const ms = exactNow.getMilliseconds();
         
         let backgroundColor = '#000000';
         let textColor = '#ffffff';
-        let bottomText = '• УСПІХІВ! •'; // 🔥 Фиксировано: ВСЕГДА пишется "УСПІХІВ!" по умолчанию
+        let bottomText = '• УСПІХІВ! •'; 
         
         const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
@@ -136,20 +137,41 @@
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
                 backgroundColor = '#2e7d32'; 
                 textColor = '#ffffff';      
-                bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
+                
+                // 🔥 Моргание огней: каждые 500мс переключаем отображение значков огня
+                if (ms < 500) {
+                    bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥';
+                } else {
+                    bottomText = '  ЛОВИ ВАНТАЖ!  ';
+                }
             } else {
-                bottomText = '• УСПІХІВ! •'; // 🔥 Изменено: для премиумов вне фаз тоже пишется "УСПІХІВ!"
+                bottomText = '• УСПІХІВ! •'; 
             }
         }
 
+        // Очищаем весь холст перед новой отрисовкой
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 📐 СКРУГЛЕННЯ УГЛІВ ГОЛОВНОГО ХОЛСТА (Радиус: 16px)
+        ctx.save();
+        ctx.beginPath();
+        if (typeof ctx.roundRect === "function") {
+            ctx.roundRect(0, 0, canvas.width, canvas.height, 16);
+        } else {
+            // Резервный вариант скругления для совсем старых браузеров
+            ctx.arcTo(canvas.width, 0, canvas.width, canvas.height, 16);
+        }
+        ctx.clip();
+
+        // Заливаем фон внутри скругленной области
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // 🔥 Точный жирный шрифт: 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀
+        //  Добавлены точки вокруг верхней надписи: • 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •
         ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀', canvas.width / 2, 25);
+        ctx.fillText('• 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •', canvas.width / 2, 25);
 
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
@@ -163,10 +185,12 @@
         ctx.fillStyle = textColor;
         ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
+        
+        ctx.restore(); // Сбрасываем маску скругления для следующего кадра
     }
 
-
-    setInterval(drawTimer, 200);
+    // Увеличили частоту обновления до 100мс для идеально плавного мигания огней
+    setInterval(drawTimer, 100);
     video.srcObject = canvas.captureStream(15);
 
     pipBtn.addEventListener('click', async () => {
