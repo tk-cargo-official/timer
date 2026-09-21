@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <title>Світовий Годинник ТК (Київ)</title>
     <style>
-        body { background: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 30px; }
-        .container { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        /* Делаем страницу и контейнеры полностью прозрачными */
+        body { background: transparent; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding-top: 30px; }
+        .container { max-width: 500px; margin: 0 auto; background: transparent; padding: 20px; border-radius: 10px; }
         button { padding: 12px 24px; font-size: 16px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
         button:hover { background: #218838; }
-        video { border: 2px solid #444; border-radius: 6px; background: #000; width: 300px; height: 120px; margin-top: 10px; }
+        /* Видеоплеер тоже делаем прозрачным и убираем рамки */
+        video { border: none; background: transparent; width: 300px; height: 120px; margin-top: 10px; }
         p { color: #aaa; font-size: 14px; }
-        /* Стиль для екрана блокування посторонніх */
-        #lockScreen { display: none; padding: 50px 20px; color: #ff4d4d; font-size: 18px; font-weight: bold; }
+        /* Экран блокировки */
+        #lockScreen { display: none; padding: 50px 20px; color: #ff4d4d; font-size: 18px; font-weight: bold; background: #111; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; }
     </style>
 </head>
 <body>
@@ -100,7 +102,7 @@
             console.log("Помилка синхронізації часу з сервером");
         }
     }
-    
+
     syncWithWorldTime();
     loadConfigSeconds();
     
@@ -115,9 +117,10 @@
         const sec = exactNow.getSeconds();
         const ms = exactNow.getMilliseconds();
         
-        let backgroundColor = '#000000';
+        // Базовые цвета: фона нет (прозрачный), текст белый
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
+        let headerColor = '#ffcc00'; // По умолчанию верхняя надпись всегда желтая
         
         const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
@@ -127,62 +130,53 @@
         
         if (hasColorAccess) {
             if (endsWithPrepMin) {
-                backgroundColor = '#ffcc00'; 
-                textColor = '#000000';      
+                textColor = '#ffcc00';      // Время становится желтым
+                headerColor = '#ffcc00';
                 bottomText = '⚠️ ПРИГОТУВАТИСЬ!'; 
             } else if (endsWithSpawnMin && sec >= 0 && sec < cargoStartSec) {
-                backgroundColor = '#d32f2f'; 
-                textColor = '#ffffff';      
+                textColor = '#d32f2f';      // Время становится красным
+                headerColor = '#ffcc00';
                 bottomText = '⏳ ОЧІКУВАННЯ...'; 
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
-                backgroundColor = '#2e7d32'; 
-                textColor = '#ffffff';      
-                bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; // Текст всегда одинаковый, не прыгает
+                textColor = '#2e7d32';      // Время становится зеленым
+                headerColor = '#ffcc00';
+                bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
                 
-                // Магия мигания: вторую половину секунды (от 500 до 999 мс) текст просто скрывается
+                // Магия мигания текста ловли
                 if (ms >= 500) {
-                    textColor = 'transparent'; // Делает текст полностью невидимым на полсекунды
+                    textColor = 'transparent'; 
                 }
             }
+        }
 
-        // Очищаем весь холст перед новой отрисовкой
+        // Очищаем весь холст перед новой отрисовкой (делает его прозрачным)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 📐 СКРУГЛЕННЯ УГЛІВ ГОЛОВНОГО ХОЛСТА (Радиус: 16px)
         ctx.save();
-        ctx.beginPath();
-        if (typeof ctx.roundRect === "function") {
-            ctx.roundRect(0, 0, canvas.width, canvas.height, 16);
-        } else {
-            // Резервный вариант скругления для совсем старых браузеров
-            ctx.arcTo(canvas.width, 0, canvas.width, canvas.height, 16);
-        }
-        ctx.clip();
-
-        // Заливаем фон внутри скругленной области
-        ctx.fillStyle = backgroundColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        //  Добавлены точки вокруг верхней надписи: • 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •
-        ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
+        // Рисуем верхнюю надпись
+        ctx.fillStyle = headerColor;
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('• 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •', canvas.width / 2, 25);
+        ctx.fillText('• 👑 КОПДОНІВ НЕМА 👑', canvas.width / 2, 25);
 
+        // Форматируем время
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
         const secStr = String(sec).padStart(2, '0');
         const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
+        // Рисуем основное время
         ctx.fillStyle = textColor;
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        ctx.fillStyle = textColor;
+        // Рисуем нижнюю надпись
+        ctx.fillStyle = textColor === 'transparent' ? '#2e7d32' : textColor; // Чтобы нижний текст не исчезал при мигании цифр
         ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
         
-        ctx.restore(); // Сбрасываем маску скругления для следующего кадра
+        ctx.restore(); 
     }
 
     // Увеличили частоту обновления до 100мс для идеально плавного мигания огней
