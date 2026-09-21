@@ -118,6 +118,7 @@
         let backgroundColor = '#000000';
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
+        let bottomColor = ''; // Создаем переменную для контроля цвета нижней надписи
         
         const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
@@ -139,10 +140,17 @@
                 textColor = '#ffffff';      
                 bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
                 
+                // Вот она, магия мигания нижнего текста!
+                // Каждую вторую половину секунды делаем нижний текст прозрачным
                 if (ms >= 500) {
-                    textColor = 'transparent'; 
+                    bottomColor = 'transparent'; 
                 }
             }
+        }
+
+        // Если для низа цвет не задан (обычное время), он дублирует цвет цифр
+        if (!bottomColor) {
+            bottomColor = textColor;
         }
 
         // Очищаем весь холст перед новой отрисовкой
@@ -154,7 +162,6 @@
         if (typeof ctx.roundRect === "function") {
             ctx.roundRect(0, 0, canvas.width, canvas.height, 16);
         } else {
-            // Резервный вариант скругления для совсем старых браузеров
             ctx.arcTo(canvas.width, 0, canvas.width, canvas.height, 16);
         }
         ctx.clip();
@@ -174,11 +181,13 @@
         const secStr = String(sec).padStart(2, '0');
         const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
+        // Отрисовка стабильного времени (больше не мигает!)
         ctx.fillStyle = textColor;
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        ctx.fillStyle = textColor;
+        // Отрисовка мигающего нижнего текста
+        ctx.fillStyle = bottomColor;
         ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
         
