@@ -26,7 +26,7 @@
 <!-- Головне вікно програми -->
 <div class="container" id="mainApp" style="display: none;">
     <h2>Смарт-годинник ТК (Київський час)</h2>
-    <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку нижче.</p>
+    <p>Для Chromium (Chrome, Edge, Opera): натисніть кнопку ниже.</p>
     <button id="pipBtn">📌 Закріпити поверх гри (PiP)</button>
     
     <p>Для Firefox: якщо кнопка вище не реагує, просто натисніть **правою кнопкою миші** прямо по центру відео з годинником і виберіть пункт **«Картинка в картинці»**.</p>
@@ -154,6 +154,7 @@
         if (typeof ctx.roundRect === "function") {
             ctx.roundRect(0, 0, canvas.width, canvas.height, 16);
         } else {
+            // Резервный вариант скругления для совсем старых браузеров
             ctx.arcTo(canvas.width, 0, canvas.width, canvas.height, 16);
         }
         ctx.clip();
@@ -162,6 +163,7 @@
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        //  Добавлены точки вокруг верхней надписи: • 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •
         ctx.fillStyle = hasColorAccess && endsWithPrepMin ? '#000000' : '#ffcc00';
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
@@ -180,9 +182,10 @@
         ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
         
-        ctx.restore(); 
+        ctx.restore(); // Сбрасываем маску скругления для следующего кадра
     }
 
+    // Увеличили частоту обновления до 100мс для идеально плавного мигания огней
     setInterval(drawTimer, 100);
     video.srcObject = canvas.captureStream(15);
 
