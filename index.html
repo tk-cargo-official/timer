@@ -60,7 +60,8 @@
 
     // --- ЛОГІКА РОБОТИ СМАРТ-ГОДИННИКА ---
     const canvas = document.getElementById('timerCanvas');
-    const ctx = canvas.getContext('2d');
+    // Явно указываем альфа-канал для контекста рисования, чтобы не было черного фона
+    const ctx = canvas.getContext('2d', { alpha: true }); 
     const video = document.getElementById('timerVideo');
     const pipBtn = document.getElementById('pipBtn');
 
@@ -117,7 +118,6 @@
         const sec = exactNow.getSeconds();
         const ms = exactNow.getMilliseconds();
         
-        // Базовые цвета: фона нет (прозрачный), текст белый
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
         let headerColor = '#ffcc00'; // По умолчанию верхняя надпись всегда желтая
@@ -130,35 +130,35 @@
         
         if (hasColorAccess) {
             if (endsWithPrepMin) {
-                textColor = '#ffcc00';      // Время становится желтым
+                textColor = '#ffcc00';      
                 headerColor = '#ffcc00';
                 bottomText = '⚠️ ПРИГОТУВАТИСЬ!'; 
             } else if (endsWithSpawnMin && sec >= 0 && sec < cargoStartSec) {
-                textColor = '#d32f2f';      // Время становится красным
+                textColor = '#d32f2f';      
                 headerColor = '#ffcc00';
                 bottomText = '⏳ ОЧІКУВАННЯ...'; 
             } else if (endsWithSpawnMin && sec >= cargoStartSec && sec <= cargoEndSec) {
-                textColor = '#2e7d32';      // Время становится зеленым
+                textColor = '#2e7d32';      
                 headerColor = '#ffcc00';
                 bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
                 
-                // Магия мигания текста ловли
+                // Магия мигания цифр времени
                 if (ms >= 500) {
                     textColor = 'transparent'; 
                 }
             }
         }
 
-        // Очищаем весь холст перед новой отрисовкой (делает его прозрачным)
+        // Очищаем весь холст до полной прозрачности
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
         
-        // Рисуем верхнюю надпись
+        // ВЕРНУЛ ОРИГИНАЛЬНЫЙ ТЕКСТ ОДИН В ОДИН
         ctx.fillStyle = headerColor;
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('• 👑 КОПДОНІВ НЕМА 👑', canvas.width / 2, 25);
+        ctx.fillText('• 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •', canvas.width / 2, 25);
 
         // Форматируем время
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
@@ -166,22 +166,30 @@
         const secStr = String(sec).padStart(2, '0');
         const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
-        // Рисуем основное время
+        // Рисуем время
         ctx.fillStyle = textColor;
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        // Рисуем нижнюю надпись
-        ctx.fillStyle = textColor === 'transparent' ? '#2e7d32' : textColor; // Чтобы нижний текст не исчезал при мигании цифр
+        // Рисуем нижнюю надпись (она не исчезает, когда мигает время)
+        ctx.fillStyle = textColor === 'transparent' ? '#2e7d32' : textColor; 
         ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
         
         ctx.restore(); 
     }
 
-    // Увеличили частоту обновления до 100мс для идеально плавного мигания огней
+    // Частота обновления 100мс
     setInterval(drawTimer, 100);
-    video.srcObject = canvas.captureStream(15);
+
+    // Захватываем поток (браузер теперь знает, что он прозрачный)
+    const stream = canvas.captureStream(15);
+    video.srcObject = stream;
+
+    // Принудительно убираем фоновый цвет у видеоплеера в Chromium
+    video.addEventListener('loadedmetadata', () => {
+        video.style.background = 'transparent';
+    });
 
     pipBtn.addEventListener('click', async () => {
         try {
