@@ -60,7 +60,6 @@
 
     // --- ЛОГІКА РОБОТИ СМАРТ-ГОДИННИКА ---
     const canvas = document.getElementById('timerCanvas');
-    // Явно указываем альфа-канал для контекста рисования, чтобы не было черного фона
     const ctx = canvas.getContext('2d', { alpha: true }); 
     const video = document.getElementById('timerVideo');
     const pipBtn = document.getElementById('pipBtn');
@@ -120,7 +119,7 @@
         
         let textColor = '#ffffff';
         let bottomText = '• УСПІХІВ! •'; 
-        let headerColor = '#ffcc00'; // По умолчанию верхняя надпись всегда желтая
+        let headerColor = '#ffcc00'; 
         
         const spawnUnit = (target_min % 10); 
         const prepUnit = (spawnUnit === 0) ? 9 : (spawnUnit - 1);
@@ -142,36 +141,29 @@
                 headerColor = '#ffcc00';
                 bottomText = '🔥 ЛОВИ ВАНТАЖ! 🔥'; 
                 
-                // Магия мигания цифр времени
                 if (ms >= 500) {
                     textColor = 'transparent'; 
                 }
             }
         }
 
-        // Очищаем весь холст до полной прозрачности
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         ctx.save();
         
-        // ВЕРНУЛ ОРИГИНАЛЬНЫЙ ТЕКСТ ОДИН В ОДИН
         ctx.fillStyle = headerColor;
         ctx.font = 'bold 21px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('• 𝐊𝐎𝐏𝐃𝐎𝐇𝐈𝐁 𝐇𝐄𝐌𝐀 •', canvas.width / 2, 25);
 
-        // Форматируем время
         const hrsStr = String(exactNow.getHours()).padStart(2, '0');
         const minStr = String(min).padStart(2, '0');
         const secStr = String(sec).padStart(2, '0');
         const timeText = `${hrsStr}:${minStr}:${secStr}`;
         
-        // Рисуем время
         ctx.fillStyle = textColor;
         ctx.font = 'bold 44px monospace';
         ctx.fillText(timeText, canvas.width / 2, canvas.height / 2 + 10);
 
-        // Рисуем нижнюю надпись (она не исчезает, когда мигает время)
         ctx.fillStyle = textColor === 'transparent' ? '#2e7d32' : textColor; 
         ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif';
         ctx.fillText(bottomText, canvas.width / 2, canvas.height - 15);
@@ -179,19 +171,46 @@
         ctx.restore(); 
     }
 
-    // Частота обновления 100мс
     setInterval(drawTimer, 100);
 
-    // Захватываем поток (браузер теперь знает, что он прозрачный)
     const stream = canvas.captureStream(15);
     video.srcObject = stream;
 
-    // Принудительно убираем фоновый цвет у видеоплеера в Chromium
-    video.addEventListener('loadedmetadata', () => {
-        video.style.background = 'transparent';
-    });
-
+    // 🔥 РЕВОЛЮЦИОННЫЙ МЕТОД ДЛЯ ПОЛНОЙ ПРОЗРАЧНОСТИ ПОВЕРХ ИГРЫ
     pipBtn.addEventListener('click', async () => {
+        // Проверяем, поддерживает ли браузер продвинутое Document PiP (Chrome, Opera, Edge поддерживают)
+        if ('documentPictureInPicture' in window) {
+            try {
+                // Создаем оверлейное окно точного размера холста
+                const pipWindow = await window.documentPictureInPicture.requestWindow({
+                    width: 320,
+                    height: 140,
+                });
+
+                // Делаем документ внутри оверлея полностью прозрачным
+                pipWindow.document.body.style.background = 'transparent';
+                pipWindow.document.body.style.margin = '0';
+                pipWindow.document.body.style.overflow = 'hidden';
+                pipWindow.document.body.style.display = 'flex';
+                pipWindow.document.body.style.justifyContent = 'center';
+                pipWindow.document.body.style.alignItems = 'center';
+
+                // Переносим наш Canvas прямо в это всплывающее оверлейное окно
+                canvas.style.display = 'block';
+                pipWindow.document.body.appendChild(canvas);
+
+                // Если окно закрывают — возвращаем Canvas на главную страницу (в скрытый режим)
+                pipWindow.addEventListener('pagehide', () => {
+                    canvas.style.display = 'none';
+                    document.getElementById('mainApp').appendChild(canvas);
+                });
+                return;
+            } catch (err) {
+                console.error("Document PiP ошибка:", err);
+            }
+        }
+
+        // Резервный стандартный PiP (с черным фоном) для старых браузеров или Firefox
         try {
             if (document.pictureInPictureElement) {
                 await document.exitPictureInPicture();
